@@ -1,6 +1,8 @@
 # Grouping-Structure-Extractor
 GTTMにおけるグルーピング構造をメロディから抽出するシステムです。GUIによるアルゴリズムのパラメータ調整、メロディの概形と構造境界線の可視化が可能です。
 
+<img src="https://github.com/Shun40/Grouping-Structure-Extractor/blob/master/img/20170804_SS.png" width="600">
+
 ### 使い方
 1. 解析したいMIDIファイルのパスを指定します。
     + 前提として、メロディのトラックは1番トラックである必要があります。
