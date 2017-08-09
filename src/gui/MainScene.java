@@ -49,8 +49,7 @@ public class MainScene extends Scene {
 				Analyzer analyzer = new Analyzer();
 				ArrayList<Integer> DLow = analyzer.extractGroupingStructure(
 						textField.getText(),
-						S2a.getValue(), S2b.getValue(), S3a.getValue(), S3d.getValue(),
-						S6.getValue(),
+						S2a.getValue(), S2b.getValue(), S3a.getValue(), S3d.getValue(), S6.getValue(),
 						Wm.getValue(), Wl.getValue(), Ws.getValue(),
 						TLow.getValue());
 				viewer.show(textField.getText(), DLow);
@@ -66,7 +65,7 @@ public class MainScene extends Scene {
 		S3d = new ParameterSlider("S3d (音価)", 0.0, 1.0, 1.0, 560, 70);
 		S6  = new ParameterSlider("S6 (メロディの並列性)", 0.0, 1.0, 1.0, 740, 70);
 		Wm  = new ParameterSlider("Wm (GPR6 P1)", 0.0, 1.0, 0.5, 20, 150);
-		Wl  = new ParameterSlider("Wl (GPR6 P2)", 0.0, 1.0, 0.25, 200, 150);
+		Wl  = new ParameterSlider("Wl (GPR6 P2)", 0.0, 1.0, 0.0, 200, 150);
 		Ws  = new ParameterSlider("Ws (GPR6 P3)", 0.0, 1.0, 0.5, 380, 150);
 		TLow = new ParameterSlider("TLow (境界閾値)", 0.0, 1.0, 0.25, 20, 230);
 		((Group)getRoot()).getChildren().add(S2a);

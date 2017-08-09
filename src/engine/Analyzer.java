@@ -2,28 +2,27 @@ package engine;
 
 import java.util.ArrayList;
 
-import MIDI.MidiNoteEvent;
-import MIDI.MidiNoteEvents;
 import MIDI.MidiUtil;
+import MIDI.NoteEvent;
+import MIDI.NoteEvents;
 
 public class Analyzer {
 	public Analyzer() {
 	}
 
 	public ArrayList<Integer> extractGroupingStructure(String midiFilePath, double S2a, double S2b, double S3a, double S3d, double S6, double Wm, double Wl, double Ws, double TLow) {
-		MidiNoteEvents midiNoteEvents = MidiUtil.extractMidiNoteEvents(midiFilePath);
-
-		NoteVariables noteVariables = extractNoteVariables(midiNoteEvents);
+		NoteEvents events = MidiUtil.extractNoteEvents(midiFilePath);
+		NoteVariables noteVariables = extractNoteVariables(events);
 		BasicVariables basicVariables = extractBasicVariables(noteVariables);
 
 		ArrayList<Double> D2a = extractGPR2a(basicVariables);
 		ArrayList<Double> D2b = extractGPR2b(basicVariables);
 		ArrayList<Double> D3a = extractGPR3a(basicVariables);
 		ArrayList<Double> D3d = extractGPR3d(basicVariables);
-		ArrayList<Double> D6 = extractGPR6(midiNoteEvents, Wm, Wl, Ws);
+		ArrayList<Double> D6 = extractGPR6(events, Wm, Wl, Ws, 4);
 
 		ArrayList<ArrayList<Double>> DR = new ArrayList<ArrayList<Double>>();
-		for(int i = 0; i < midiNoteEvents.size(); i++) {
+		for(int i = 0; i < events.size(); i++) {
 			ArrayList<Double> DRi = new ArrayList<Double>();
 			DRi.add(D2a.get(i));
 			DRi.add(D2b.get(i));
@@ -45,16 +44,14 @@ public class Analyzer {
 		return extractDLow(BLow, D1, TLow);
 	}
 
-	public NoteVariables extractNoteVariables(MidiNoteEvents midiNoteEvents) {
+	public NoteVariables extractNoteVariables(NoteEvents events) {
 		NoteVariables noteVariables = new NoteVariables();
-
-		for(int i = 0; i < midiNoteEvents.size(); i++) {
-			int tau = (int)midiNoteEvents.get(i).getNoteOnTickInSTGT();
-			int epsilon = (int)midiNoteEvents.get(i).getNoteOffTickInSTGT();
-			int f = midiNoteEvents.get(i).getNoteNumber();
+		for(int i = 0; i < events.size(); i++) {
+			int tau = (int)events.get(i).getNoteOnTickInSTGT();
+			int epsilon = (int)events.get(i).getNoteOffTickInSTGT();
+			int f = events.get(i).getNoteNumber();
 			noteVariables.add(new NoteVariable(tau, epsilon, f));
 		}
-
 		return noteVariables;
 	}
 
@@ -62,10 +59,6 @@ public class Analyzer {
 		BasicVariables basicVariables = new BasicVariables();
 
 		ArrayList<Integer> rhos = new ArrayList<Integer>();
-		ArrayList<Integer> iotas = new ArrayList<Integer>();
-		ArrayList<Integer> etas = new ArrayList<Integer>();
-		ArrayList<Integer> betas = new ArrayList<Integer>();
-
 		for(int i = 0; i < noteVariables.size(); i++) {
 			int rho;
 			if(i == noteVariables.size() - 1) {
@@ -78,6 +71,7 @@ public class Analyzer {
 			rhos.add(rho);
 		}
 
+		ArrayList<Integer> iotas = new ArrayList<Integer>();
 		for(int i = 0; i < noteVariables.size(); i++) {
 			int iota;
 			if(i == noteVariables.size() - 1) {
@@ -89,6 +83,7 @@ public class Analyzer {
 			iotas.add(iota);
 		}
 
+		ArrayList<Integer> etas = new ArrayList<Integer>();
 		for(int i = 0; i < noteVariables.size(); i++) {
 			int eta;
 			if(i == noteVariables.size() - 1) {
@@ -100,6 +95,7 @@ public class Analyzer {
 			etas.add(eta);
 		}
 
+		ArrayList<Integer> betas = new ArrayList<Integer>();
 		for(int i = 0; i < noteVariables.size(); i++) {
 			int beta;
 			int temp1; // iota_i+1
@@ -127,7 +123,6 @@ public class Analyzer {
 			int beta = betas.get(i);
 			basicVariables.add(new BasicVariable(rho, iota, eta, beta));
 		}
-
 		return basicVariables;
 	}
 
@@ -136,23 +131,26 @@ public class Analyzer {
 
 		int temp1, temp2, temp3; // rho_i-1, rho_i, rho_i+1
 		for(int i = 0; i < basicVariables.size(); i++) {
-			if(i == 0 || i == basicVariables.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				D2a.add(0.0);
+			if(i == 0) { // 始端の処理
+				temp2 = basicVariables.get(i).getRho();
+				temp3 = basicVariables.get(i + 1).getRho();
+				if(temp2 > temp3) D2a.add(1.0);
+				else              D2a.add(0.0);
+			}
+			else if(i == basicVariables.size() - 1) { // 終端の処理
+				temp1 = basicVariables.get(i - 1).getRho();
+				temp2 = basicVariables.get(i).getRho();
+				if(temp1 < temp2) D2a.add(1.0);
+				else              D2a.add(0.0);
 			}
 			else {
 				temp1 = basicVariables.get(i - 1).getRho();
 				temp2 = basicVariables.get(i).getRho();
 				temp3 = basicVariables.get(i + 1).getRho();
-				if(temp1 < temp2 && temp2 > temp3) {
-					D2a.add(1.0);
-				}
-				else {
-					D2a.add(0.0);
-				}
+				if(temp1 < temp2 && temp2 > temp3) D2a.add(1.0);
+				else                               D2a.add(0.0);
 			}
 		}
-		//for(int i = 0; i < D2a.size(); i++) System.out.println("D2a[" + i + "]: " + D2a.get(i));
-
 		return D2a;
 	}
 
@@ -161,23 +159,26 @@ public class Analyzer {
 
 		int temp1, temp2, temp3; // iota_i-1, iota_i, iota_i+1
 		for(int i = 0; i < basicVariables.size(); i++) {
-			if(i == 0 || i == basicVariables.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				D2b.add(0.0);
+			if(i == 0) { // 始端の処理
+				temp2 = basicVariables.get(i).getIota();
+				temp3 = basicVariables.get(i + 1).getIota();
+				if(temp2 > temp3) D2b.add(1.0);
+				else              D2b.add(0.0);
+			}
+			else if(i == basicVariables.size() - 1) { // 終端の処理
+				temp1 = basicVariables.get(i - 1).getIota();
+				temp2 = basicVariables.get(i).getIota();
+				if(temp1 < temp2) D2b.add(1.0);
+				else              D2b.add(0.0);
 			}
 			else {
 				temp1 = basicVariables.get(i - 1).getIota();
 				temp2 = basicVariables.get(i).getIota();
 				temp3 = basicVariables.get(i + 1).getIota();
-				if(temp1 < temp2 && temp2 > temp3) {
-					D2b.add(1.0);
-				}
-				else {
-					D2b.add(0.0);
-				}
+				if(temp1 < temp2 && temp2 > temp3) D2b.add(1.0);
+				else                               D2b.add(0.0);
 			}
 		}
-		//for(int i = 0; i < D2b.size(); i++) System.out.println("D2b[" + i + "]: " + D2b.get(i));
-
 		return D2b;
 	}
 
@@ -186,23 +187,26 @@ public class Analyzer {
 
 		int temp1, temp2, temp3; // |eta_i-1|, |eta_i|, |eta_i+1|
 		for(int i = 0; i < basicVariables.size(); i++) {
-			if(i == 0 || i == basicVariables.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				D3a.add(0.0);
+			if(i == 0) { // 始端の処理
+				temp2 = Math.abs(basicVariables.get(i).getEta());
+				temp3 = Math.abs(basicVariables.get(i + 1).getEta());
+				if(temp2 > temp3) D3a.add(1.0);
+				else              D3a.add(0.0);
+			}
+			else if(i == basicVariables.size() - 1) { // 終端の処理
+				temp1 = Math.abs(basicVariables.get(i - 1).getEta());
+				temp2 = Math.abs(basicVariables.get(i).getEta());
+				if(temp1 < temp2) D3a.add(1.0);
+				else              D3a.add(0.0);
 			}
 			else {
 				temp1 = Math.abs(basicVariables.get(i - 1).getEta());
 				temp2 = Math.abs(basicVariables.get(i).getEta());
 				temp3 = Math.abs(basicVariables.get(i + 1).getEta());
-				if(temp1 < temp2 && temp2 > temp3) {
-					D3a.add(1.0);
-				}
-				else {
-					D3a.add(0.0);
-				}
+				if(temp1 < temp2 && temp2 > temp3) D3a.add(1.0);
+				else                               D3a.add(0.0);
 			}
 		}
-		//for(int i = 0; i < D3a.size(); i++) System.out.println("D3a[" + i + "]: " + D3a.get(i));
-
 		return D3a;
 	}
 
@@ -211,150 +215,153 @@ public class Analyzer {
 
 		int temp1, temp2, temp3; // beta_i-1, beta_i, beta_i+1
 		for(int i = 0; i < basicVariables.size(); i++) {
-			if(i == 0 || i == basicVariables.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				D3d.add(0.0);
+			if(i == 0) { // 始端の処理
+				temp2 = basicVariables.get(i).getBeta();
+				temp3 = basicVariables.get(i + 1).getBeta();
+				if(temp2 != 0 && temp3 == 0) D3d.add(1.0);
+				else                         D3d.add(0.0);
+			}
+			else if(i == basicVariables.size() - 1) { // 終端の処理
+				temp1 = basicVariables.get(i - 1).getBeta();
+				temp2 = basicVariables.get(i).getBeta();
+				if(temp1 == 0 && temp2 != 0) D3d.add(1.0);
+				else                         D3d.add(0.0);
 			}
 			else {
 				temp1 = basicVariables.get(i - 1).getBeta();
 				temp2 = basicVariables.get(i).getBeta();
 				temp3 = basicVariables.get(i + 1).getBeta();
-				if(temp1 == 0 && temp2 != 0 && temp3 == 0) {
-					D3d.add(1.0);
-				}
-				else {
-					D3d.add(0.0);
-				}
+				if(temp1 == 0 && temp2 != 0 && temp3 == 0) D3d.add(1.0);
+				else                                       D3d.add(0.0);
 			}
 		}
-		//for(int i = 0; i < D3d.size(); i++) System.out.println("D3d[" + i + "]: " + D3d.get(i));
-
 		return D3d;
 	}
 
-	public ArrayList<Double> extractGPR6(MidiNoteEvents midiNoteEvents, double Wm, double Wl, double Ws) {
+	public ArrayList<Double> extractGPR6(NoteEvents events, double Wm, double Wl, double Ws, int R) {
 		ArrayList<Double> D6 = new ArrayList<Double>();
 
-		int R = 16; // 最大R拍分(1拍 = 4分音符)の区間の並列度をチェック
+		// Lの計算
+		int L = GPR6Util.extractL(events);
 
-		MusicalInformation musicalInformation = new MusicalInformation(midiNoteEvents);
-
-		int L = musicalInformation.getL();
-
-		// N(m, r)の計算
-		int[][] Nmr = new int[L][R];
-		ArrayList<Integer> Nm = musicalInformation.getNm();
-		for(int m = 0; m < L; m++) {
-			for(int r = 0; r < R; r++) {
-				Nmr[m][r] = 0;
-				for(int j = 0; j <= r; j++) {
-					if(m + j < L) {
-						Nmr[m][r] += Nm.get(m + j);
+		// Nの計算
+		int[] _N = GPR6Util.extractN(events);
+		int[][] N = new int[L][R];
+		for(int m = 1; m <= L; m++) {
+			for(int r = 1; r <= R; r++) {
+				N[m - 1][r - 1] = 0;
+				for(int j = 0; j <= r - 1; j++) {
+					if(m + j <= L) {
+						N[m - 1][r - 1] += _N[m + j - 1];
 					}
 				}
 			}
 		}
 
-		// O(m, n, r)の計算
-		int[][][] Omnr = new int[L][L][R];
-		ArrayList<ArrayList<Integer>> Omn = musicalInformation.getOmn();
-
-		for(int m = 0; m < L; m++) {
-			for(int n = 0; n < L; n++) {
-				for(int r = 0; r < R; r++) {
-					Omnr[m][n][r] = 0;
-					for(int j = 0; j <= r; j++) {
-						if(m + j < L && n + j < L) {
-							Omnr[m][n][r] += Omn.get(m + j).get(n + j);
+		// Oの計算
+		int[][] _O = GPR6Util.extractO(events);
+		int[][][] O = new int[L][L][R];
+		for(int m = 1; m <= L; m++) {
+			for(int n = 1; n <= L; n++) {
+				for(int r = 1; r <= R; r++) {
+					O[m - 1][n - 1][r - 1] = 0;
+					for(int j = 0; j <= r - 1; j++) {
+						if(m + j <= L && n + j <= L) {
+							O[m - 1][n - 1][r - 1] += _O[m + j - 1][n + j - 1];
 						}
 					}
 				}
 			}
 		}
 
-		// P(m, n, r)の計算
-		int[][][] Pmnr = new int[L][L][R];
-		ArrayList<ArrayList<Integer>> Pmn = musicalInformation.getPmn();
-		for(int m = 0; m < L; m++) {
-			for(int n = 0; n < L; n++) {
-				for(int r = 0; r < R; r++) {
-					Pmnr[m][n][r] = 0;
-					for(int j = 0; j <= r; j++) {
-						if(m + j < L && n + j < L) {
-							Pmnr[m][n][r] += Pmn.get(m + j).get(n + j);
+		// Pの計算
+		int[][] _P = GPR6Util.extractP(events);
+		int[][][] P = new int[L][L][R];
+		for(int m = 1; m <= L; m++) {
+			for(int n = 1; n <= L; n++) {
+				for(int r = 1; r <= R; r++) {
+					P[m - 1][n - 1][r - 1] = 0;
+					for(int j = 0; j <= r - 1; j++) {
+						if(m + j <= L && n + j <= L) {
+							P[m - 1][n - 1][r - 1] += _P[m + j - 1][n + j - 1];
 						}
 					}
 				}
 			}
 		}
 
-		// G(m, n, r)の計算
-		double[][][] Gmnr = new double[L][L][R];
-		for(int m = 0; m < L; m++) {
-			for(int n = 0; n < L; n++) {
-				for(int r = 0; r < R; r++) {
-					int _Nmr = Nmr[m][r];
-					int _Nnr = Nmr[n][r];
-					int _Omnr = Omnr[m][n][r];
-					int _Pmnr = Pmnr[m][n][r];
-					double temp1 = 0;
-					double temp2 = 0;
-					if(_Nmr + _Nnr > 0) temp1 = _Omnr / (_Nmr + _Nnr); // 0除算エラー防止
-					if(_Omnr > 0)       temp2 = _Pmnr / _Omnr;         // 0除算エラー防止
-					Gmnr[m][n][r] = ((temp1 * (1 - Wm)) + (temp2 * Wm)) * Math.pow(r, Wl);
+		// Gの計算
+		double[][][] G = new double[L][L][R];
+		for(int m = 1; m <= L; m++) {
+			for(int n = 1; n <= L; n++) {
+				for(int r = 1; r <= R; r++) {
+					// Gの定義域に収まっているかチェック
+					if(1 <= m && n <= L - r + 1 && (1 <= r && r <= L)) {
+						double temp1 = 0.0, temp2 = 0.0;
+						if(N[m - 1][r - 1] + N[n - 1][r - 1] > 0.0) { // 0除算エラー防止
+							temp1 = (double)O[m - 1][n - 1][r - 1] / (double)(N[m - 1][r - 1] + N[n - 1][r - 1]);
+						}
+						if(O[m - 1][n - 1][r - 1] > 0.0) { // 0除算エラー防止
+							temp2 = (double)P[m - 1][n - 1][r - 1] / (double)O[m - 1][n - 1][r - 1];
+						}
+						G[m - 1][n - 1][r - 1] = ((temp1 * (1.0 - Wm)) + (temp2 * Wm)) * Math.pow(r, Wl);
+					}
+					else {
+						G[m - 1][n - 1][r - 1] = 0;
+					}
 				}
 			}
 		}
 
-		// b(i), e(i), t(i)の計算
-		boolean[] b = new boolean[midiNoteEvents.size()];
-		boolean[] e = new boolean[midiNoteEvents.size()];
-		boolean[] t = new boolean[midiNoteEvents.size()];
-		for(int i = 0; i < midiNoteEvents.size(); i++) {
-			MidiNoteEvent note = midiNoteEvents.get(i);
-			int beat = midiNoteEvents.beat(note);
-			MidiNoteEvent head = midiNoteEvents.head(beat);
-			MidiNoteEvent tail = midiNoteEvents.tail(beat);
+		// b, e, tの計算
+		boolean[] b = new boolean[events.size()];
+		boolean[] e = new boolean[events.size()];
+		boolean[] t = new boolean[events.size()];
+		for(int i = 0; i < events.size(); i++) {
+			NoteEvent note = events.get(i);
+			int beat = events.beat(note);
+			NoteEvent head = events.head(beat);
+			NoteEvent tail = events.tail(beat);
 			b[i] = (note == head && note != tail);
 			e[i] = (note != head && note == tail);
 			t[i] = (note == head && note == tail);
 		}
 
-		// A(i)の計算
+		// Aの計算
 		ArrayList<Double> A = new ArrayList<Double>();
-		for(int i = 0; i < midiNoteEvents.size(); i++) {
-			MidiNoteEvent note = midiNoteEvents.get(i);
-			int beat = midiNoteEvents.beat(note) - 1;
+		for(int i = 0; i < events.size(); i++) {
+			NoteEvent note = events.get(i);
+			int beat = events.beat(note);
 			double sum = 0;
-			for(int n = 0; n < L; n++) {
-				int Nn = Nm.get(n);
-				//for(int r = 0; r < L / 2; r++) {
-				for(int r = 0; r < R; r++) {
-					if(b[i] && Nn > 0) {
-						sum += Gmnr[beat][n][r] * (1 - Ws);
+			for(int n = 1; n <= L; n++) {
+				for(int r = 1; r <= R; r++) {
+					if(r > L / 2) break; // rがL/2の範囲に収まっているかチェック
+					if(b[i] && _N[n - 1] > 0) {
+						sum += G[beat - 1][n - 1][r - 1] * (1.0 - Ws);
 					}
-					else if(e[i] && Nn > 0) {
+					else if(e[i] && _N[n - 1] > 0) {
 						if(beat - r > 0 && n - r > 0) {
-							sum += Gmnr[beat - r][n - r][r] * Ws;
+							sum += G[beat - r - 1][n - r - 1][r - 1] * Ws;
 						} else {
 							sum += 0;
 						}
 					}
-					else if(t[i] && Nn > 0) {
+					else if(t[i] && _N[n - 1] > 0) {
 						if(beat - r > 0 && n - r > 0) {
-							sum += ((Gmnr[beat][n][r] * (1 - Ws)) + (Gmnr[beat - r][n - r][r] * Ws));
+							sum += ((G[beat - 1][n - 1][r - 1] * (1.0 - Ws)) + (G[beat - r - 1][n - r - 1][r - 1] * Ws));
 						} else {
-							sum += Gmnr[beat][n][r] * (1 - Ws);
+							sum += G[beat - 1][n - 1][r - 1] * (1.0 - Ws);
 						}
 					}
 					else {
-						sum += 0;
+						sum += 0.0;
 					}
 				}
 			}
 			A.add(sum);
 		}
 
-		// A(i)の正規化
+		// Aの正規化
 		double Amax = 0;
 		for(double a : A) {
 			if(Amax <= a) Amax = a;
@@ -385,8 +392,6 @@ public class Analyzer {
 			}
 			BLow.add(sigma / max);
 		}
-		//for(int i = 0; i < BLow.size(); i++) System.out.println("BLow[" + i + "]: " + BLow.get(i));
-
 		return BLow;
 	}
 
@@ -395,23 +400,23 @@ public class Analyzer {
 
 		double Blow1, Blow2, Blow3; // Blow_i-1, Blow_i, Blow_i+1
 		for(int i = 0; i < BLow.size(); i++) {
-			if(i == 0 || i == BLow.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				D1.add(0);
+			if(i == 0) { // 始端の処理
+				D1.add(0); // この時点ではD1(i-1)を使った計算が出来ないため, とりあえず始端は0にしておく
+			}
+			else if(i == BLow.size() - 1) { // 終端の処理
+				Blow1 = BLow.get(i - 1);
+				Blow2 = BLow.get(i);
+				if(Blow1 <= Blow2 && D1.get(i - 1) == 0) D1.add(1);
+				else                                     D1.add(0);
 			}
 			else {
 				Blow1 = BLow.get(i - 1);
 				Blow2 = BLow.get(i);
 				Blow3 = BLow.get(i + 1);
-				if(Blow1 <= Blow2 && Blow2 >= Blow3 && D1.get(i - 1) == 0) {
-					D1.add(1);
-				}
-				else {
-					D1.add(0);
-				}
+				if(Blow1 <= Blow2 && Blow2 >= Blow3 && D1.get(i - 1) == 0) D1.add(1);
+				else                                                       D1.add(0);
 			}
 		}
-		//for(int i = 0; i < D1.size(); i++) System.out.println("D1[" + i + "]: " + D1.get(i));
-
 		return D1;
 	}
 
@@ -419,20 +424,9 @@ public class Analyzer {
 		ArrayList<Integer> DLow = new ArrayList<Integer>();
 
 		for(int i = 0; i < BLow.size(); i++) {
-			if(i == 0 || i == BLow.size() - 1) { // 始端と終端はとりあえず境界になり得ないものとする
-				DLow.add(0);
-			}
-			else {
-				if(BLow.get(i) > TLow && D1.get(i) == 1) {
-					DLow.add(1);
-				}
-				else {
-					DLow.add(0);
-				}
-			}
+			if(BLow.get(i) > TLow && D1.get(i) == 1) DLow.add(1);
+			else                                     DLow.add(0);
 		}
-		//for(int i = 0; i < DLow.size(); i++) System.out.println("DLow[" + i + "]: " + DLow.get(i));
-
 		return DLow;
 	}
 }

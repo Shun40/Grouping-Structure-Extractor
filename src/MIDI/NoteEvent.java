@@ -1,12 +1,12 @@
 package MIDI;
 
-public class MidiNoteEvent {
+public class NoteEvent {
 	private long noteOnTick;
 	private long noteOffTick;
 	private int noteNumber;
 	private long length;
 
-	public MidiNoteEvent(long noteOnTick, long noteOffTick, int noteNumber) {
+	public NoteEvent(long noteOnTick, long noteOffTick, int noteNumber) {
 		this.noteOnTick = noteOnTick;
 		this.noteOffTick = noteOffTick;
 		this.noteNumber = noteNumber;
